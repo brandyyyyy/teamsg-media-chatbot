@@ -467,6 +467,8 @@
   let started = false;
 
   // ---- Multi-chat state (client-side only; the API is stateless per-request) ----
+  // sessionStorage (not localStorage): history should survive reloads within a
+  // tab but be cleared once the tab/browser closes, per user requirement.
   const CHATS_KEY = 'teamsg_chats_v1';
   const MAX_CHATS = 20;
 
@@ -480,7 +482,7 @@
 
   function loadChatsState() {
     try {
-      const raw = localStorage.getItem(CHATS_KEY);
+      const raw = sessionStorage.getItem(CHATS_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
       if (parsed && Array.isArray(parsed.chats) && parsed.chats.length) return parsed;
     } catch {
@@ -491,7 +493,7 @@
 
   function saveChatsState() {
     try {
-      localStorage.setItem(CHATS_KEY, JSON.stringify(chatsState));
+      sessionStorage.setItem(CHATS_KEY, JSON.stringify(chatsState));
     } catch {
       /* storage full/unavailable - conversation still works, just won't persist */
     }
