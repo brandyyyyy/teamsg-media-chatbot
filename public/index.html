@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TeamSG Media Desk - Glasgow 2026</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --muted-2: #9a9ea6;
+    --accent: #e0332f;
+    --accent-ink: #ffffff;
+    --card-bg: #f2f2f4;
+    --card-bg-hover: #e9e9ec;
+    --pill-bg: #f2f2f4;
+    --border: #ececee;
+    --input-bg: #f2f2f4;
+    --user-bubble: #f2f2f4;
+    --bot-bubble: #ffffff;
+    --sidebar-bg: #f7f7f8;
+    --warn-bg: #fdeceb;
+    --warn-border: #e0332f;
+    --warn-text: #a3241f;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); }
+  button { font-family: inherit; }
+  svg.icon { width: 18px; height: 18px; display: block; }
+
+  /* ---------- App shell: sidebar + main column ---------- */
+  .app-shell { display: flex; height: 100%; }
+
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 12px;
+    overflow-y: auto;
+  }
+  .sidebar-new-chat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+  .sidebar-new-chat:hover { opacity: 0.92; }
+  .sidebar-new-chat svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .sidebar-heading { font-size: 10.5px; letter-spacing: 0.5px; color: var(--muted-2); padding: 0 8px 6px; }
+  .sidebar-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .sidebar-item {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 9px 10px;
+    border-radius: 9px;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sidebar-item:hover { background: var(--card-bg-hover); }
+  .sidebar-item.active { background: var(--card-bg-hover); font-weight: 600; }
+  .sidebar-empty { font-size: 12px; color: var(--muted-2); padding: 8px 10px; }
+
+  .main-column { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100%; }
+
+  /* ---------- Header ---------- */
+  header {
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .brand-name { font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
+  .brand-name .brand-team { color: var(--accent); }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--pill-bg);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .status-dot.ok { background: #1fa25c; }
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  /* ---------- Main ---------- */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: 720px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 8px 24px 16px;
+    min-height: 0;
+  }
+
+  .empty-state { padding: 28px 0 8px; }
+  .hero-title {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0 0 6px;
+    letter-spacing: -0.5px;
+  }
+  .hero-subtitle { font-size: 18px; color: var(--muted-2); margin: 0 0 28px; font-weight: 500; }
+
+  .quick-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .qa-card {
+    position: relative;
+    background: var(--card-bg);
+    border: none;
+    border-radius: 16px;
+    padding: 18px 52px 18px 18px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--text);
+    min-height: 92px;
+    transition: background 0.15s;
+  }
+  .qa-card:hover { background: var(--card-bg-hover); }
+  .qa-icon {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ffffff;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+  .qa-icon svg { width: 16px; height: 16px; }
+
+  /* ---------- Chat log ---------- */
+  #chat-log {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 12px 2px;
+    min-height: 0;
+  }
+
+  .msg { display: flex; flex-direction: column; max-width: 88%; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.bot { align-self: flex-start; align-items: flex-start; }
+  .bubble {
+    padding: 12px 15px;
+    border-radius: 16px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .msg.user .bubble { background: var(--user-bubble); border-bottom-right-radius: 4px; }
+  .msg.bot .bubble { background: var(--bot-bubble); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+
+  /* Rendered markdown inside bot bubbles */
+  .bubble p { margin: 0 0 8px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble h3, .bubble h4, .bubble h5 { margin: 10px 0 4px; line-height: 1.3; }
+  .bubble h3:first-child, .bubble h4:first-child, .bubble h5:first-child { margin-top: 0; }
+  .bubble h3 { font-size: 16px; }
+  .bubble h4 { font-size: 15px; }
+  .bubble h5 { font-size: 14.5px; }
+  .bubble ul, .bubble ol { margin: 4px 0 8px; padding-left: 20px; }
+  .bubble li { margin-bottom: 2px; }
+  .bubble code {
+    background: var(--card-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  .bubble .table-scroll { overflow-x: auto; margin: 6px 0; }
+  .bubble table { border-collapse: collapse; font-size: 13px; width: 100%; }
+  .bubble th, .bubble td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; white-space: nowrap; }
+  .bubble th { background: var(--card-bg); font-weight: 600; }
+
+  .banner-external {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    color: var(--warn-text);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.2px;
+  }
+
+  .sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+  .source-badge {
+    font-size: 10.5px;
+    color: var(--accent);
+    border: 1px solid #f6cfce;
+    background: #fdf1f0;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+
+  .typing { color: var(--muted); font-size: 12.5px; padding: 2px 2px 8px; }
+
+  /* ---------- Composer ---------- */
+  .composer-area { max-width: 720px; width: 100%; margin: 0 auto; padding: 0 24px 20px; }
+
+  form#chat-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--input-bg);
+    border-radius: 999px;
+    padding: 6px 6px 6px 16px;
+  }
+  #chat-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 10px 4px;
+    font-size: 14.5px;
+    outline: none;
+  }
+  #chat-input::placeholder { color: var(--muted-2); }
+
+  .composer-icon-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .composer-icon-btn:hover { background: rgba(0, 0, 0, 0.05); }
+  .composer-icon-btn[disabled] { color: var(--muted-2); cursor: not-allowed; }
+  .composer-icon-btn[disabled]:hover { background: none; }
+
+  .send-btn {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .send-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .disclaimer { font-size: 11.5px; color: var(--muted-2); text-align: center; margin: 12px 0 0; }
+
+  .admin-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .admin-label, .dot-sep { font-size: 10.5px; color: var(--muted-2); letter-spacing: 0.4px; }
+  .admin-label {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+  }
+  .admin-label:hover { color: var(--accent); }
+  .admin-label::after { content: ' \25BE'; display: inline-block; } /* small down-caret */
+  .admin-label[aria-expanded="true"]::after { content: ' \25B4'; } /* up-caret when open */
+  .admin-panel { text-align: center; margin-top: 8px; }
+  .admin-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .admin-link {
+    background: none;
+    border: none;
+    font-size: 10.5px;
+    letter-spacing: 0.4px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px;
+  }
+  .admin-link:hover { color: var(--accent); }
+  #admin-log {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    white-space: pre-wrap;
+    text-align: center;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c;
+      --text: #f0f1f3;
+      --muted: #9ba1ab;
+      --muted-2: #6d7480;
+      --card-bg: #23262b;
+      --card-bg-hover: #2b2f35;
+      --pill-bg: #23262b;
+      --border: #2b2f35;
+      --input-bg: #23262b;
+      --user-bubble: #23262b;
+      --bot-bubble: #1b1e23;
+      --sidebar-bg: #1b1d21;
+      --warn-bg: #3a1f1f;
+      --warn-text: #ffb4b0;
+    }
+    .qa-icon { background: #2b2f35; box-shadow: none; }
+    .source-badge { background: #2a1c1b; border-color: #4a2b29; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <button type="button" class="sidebar-new-chat" id="new-chat-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      <span>New chat</span>
+    </button>
+    <div class="sidebar-heading">CHATS</div>
+    <div class="sidebar-list" id="chat-sidebar-list"></div>
+  </aside>
+
+  <div class="main-column">
+    <header>
+      <span class="brand-name"><span class="brand-team">TeamSG</span> Media Desk</span>
+      <div class="topbar-right">
+        <span class="status-pill" id="status-pill"><span class="status-dot" id="status-dot"></span><span id="status-text">checking status...</span></span>
+        <div class="avatar">SG</div>
+      </div>
+    </header>
+
+    <main>
+  <section class="empty-state" id="empty-state">
+    <h1 class="hero-title">Hello, TeamSG.</h1>
+    <p class="hero-subtitle">How can I help with today's coverage?</p>
+
+    <div class="quick-actions">
+      <button class="qa-card" data-prompt="Summarize all TeamSG medals, Personal Bests, and National Records so far, grouped by sport, with sources cited.">
+        <span>Summarize medals, PBs and national records so far &mdash; grouped by sport.</span>
+        <span class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.5 13 6 21l6-3 6 3-2.5-8"/></svg></span>
+      </button>
+      <button class="qa-card" data-prompt="Generate a publication-ready media package (headline, dateline, lede, stats block, and narrative) for TeamSG's most recent completed result.">
+        <span>Draft a publication-ready media package for the latest TeamSG result.</span>
+        <span class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h5l5 5v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M13 3v5h5"/><path d="M9 13h6M9 17h6"/></svg></span>
+      </button>
+      <button class="qa-card" data-prompt="What's on TeamSG's schedule for the next 24 hours?">
+        <span>What's on TeamSG's schedule for the next 24 hours?</span>
+        <span class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span>
+      </button>
+      <button class="qa-card" data-prompt="__focus__">
+        <span>Ask any media query &mdash; I'll cite verified TeamSG sources.</span>
+        <span class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+      </button>
+    </div>
+  </section>
+
+  <div id="chat-log" hidden></div>
+  <div id="typing" class="typing" hidden>TeamSG Media Desk is checking verified sources...</div>
+</main>
+
+<div class="composer-area">
+  <form id="chat-form">
+    <button type="button" class="composer-icon-btn" id="attach-btn" title="Upload historical spreadsheet (Source 1)" aria-label="Upload historical spreadsheet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5 12.5 21a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 1 1-3-3l7-7"/></svg>
+    </button>
+    <input type="text" id="chat-input" placeholder="Ask the TeamSG Media Desk..." required autocomplete="off" />
+    <button type="button" class="composer-icon-btn" id="mic-btn" title="Voice input not available yet" aria-label="Voice input not available yet" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg>
+    </button>
+    <button type="submit" class="send-btn" aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+    </button>
+  </form>
+
+  <p class="disclaimer">TeamSG Media Desk may show unverified info from external engines &mdash; always check the source badge.</p>
+
+  <div class="admin-footer">
+    <button type="button" class="admin-label" id="admin-toggle" aria-expanded="false">DATA ADMIN</button>
+  </div>
+  <div class="admin-panel" id="admin-panel" hidden>
+    <div class="admin-row">
+      <button type="button" class="admin-link" id="sync-btn">Sync data sources</button>
+      <span class="dot-sep">/</span>
+      <button type="button" class="admin-link" id="upload-btn">Upload historical spreadsheet</button>
+    </div>
+    <input type="file" id="excel-file" accept=".xlsx,.xls" hidden />
+    <div id="admin-log" hidden></div>
+  </div>
+</div>
+  </div>
+</div>
+
+<script>
+  const emptyState = document.getElementById('empty-state');
+  const chatLog = document.getElementById('chat-log');
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const typingEl = document.getElementById('typing');
+  const statusPill = document.getElementById('status-pill');
+  const statusDot = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const EXTERNAL_BANNER = '[SOURCE: EXTERNAL WEB ENGINE - UNVERIFIED LOCAL SCHEMA]';
+
+  let history = [];
+  let started = false;
+
+  // ---- Multi-chat state (client-side only; the API is stateless per-request) ----
+  const CHATS_KEY = 'teamsg_chats_v1';
+  const MAX_CHATS = 20;
+
+  function newChatId() {
+    return 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function makeChat() {
+    return { id: newChatId(), title: 'New chat', createdAt: Date.now(), messages: [] };
+  }
+
+  function loadChatsState() {
+    try {
+      const raw = localStorage.getItem(CHATS_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && Array.isArray(parsed.chats) && parsed.chats.length) return parsed;
+    } catch {
+      /* ignore corrupt storage */
+    }
+    return null;
+  }
+
+  function saveChatsState() {
+    try {
+      localStorage.setItem(CHATS_KEY, JSON.stringify(chatsState));
+    } catch {
+      /* storage full/unavailable - conversation still works, just won't persist */
+    }
+  }
+
+  let chatsState = loadChatsState() || { chats: [makeChat()], activeChatId: null };
+  if (!chatsState.activeChatId || !chatsState.chats.some((c) => c.id === chatsState.activeChatId)) {
+    chatsState.activeChatId = chatsState.chats[chatsState.chats.length - 1].id;
+  }
+
+  function getActiveChat() {
+    return chatsState.chats.find((c) => c.id === chatsState.activeChatId);
+  }
+
+  function renderSidebarList() {
+    const list = document.getElementById('chat-sidebar-list');
+    list.innerHTML = '';
+    const sorted = [...chatsState.chats].sort((a, b) => b.createdAt - a.createdAt);
+    if (!sorted.length) {
+      const empty = document.createElement('div');
+      empty.className = 'sidebar-empty';
+      empty.textContent = 'No chats yet.';
+      list.appendChild(empty);
+      return;
+    }
+    sorted.forEach((chat) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'sidebar-item' + (chat.id === chatsState.activeChatId ? ' active' : '');
+      item.textContent = chat.title || 'New chat';
+      item.addEventListener('click', () => switchToChat(chat.id));
+      list.appendChild(item);
+    });
+  }
+
+  function renderActiveChatIntoLog() {
+    chatLog.innerHTML = '';
+    history = [];
+    const chat = getActiveChat();
+    if (!chat || !chat.messages.length) {
+      started = false;
+      emptyState.hidden = false;
+      chatLog.hidden = true;
+      return;
+    }
+    started = true;
+    emptyState.hidden = true;
+    chatLog.hidden = false;
+    chat.messages.forEach((m) => {
+      appendMessage(m.role, m.content, m.sources || [], m.externalWarning || false);
+      history.push({ role: m.role, content: m.content });
+    });
+  }
+
+  function switchToChat(id) {
+    chatsState.activeChatId = id;
+    saveChatsState();
+    renderActiveChatIntoLog();
+    renderSidebarList();
+  }
+
+  function startNewChat() {
+    const chat = makeChat();
+    chatsState.chats.push(chat);
+    if (chatsState.chats.length > MAX_CHATS) {
+      chatsState.chats.sort((a, b) => a.createdAt - b.createdAt);
+      chatsState.chats.splice(0, chatsState.chats.length - MAX_CHATS);
+    }
+    chatsState.activeChatId = chat.id;
+    saveChatsState();
+    renderActiveChatIntoLog();
+    renderSidebarList();
+    chatInput.focus();
+  }
+
+  function enterConversation() {
+    if (started) return;
+    started = true;
+    emptyState.hidden = true;
+    chatLog.hidden = false;
+  }
+
+  // ---- Minimal, self-contained Markdown -> HTML renderer ----
+  // Escapes raw text FIRST, so the only HTML tags in the final output are
+  // the ones this function inserts itself - safe against a message
+  // containing something that looks like a tag, since it's never treated
+  // as live markup. Deliberately covers only the subset the AI actually
+  // produces (headings, bold/italic/inline code, tables, lists,
+  // paragraphs) rather than pulling in a full Markdown library.
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function renderInline(text) {
+    return text
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1<em>$2</em>');
+  }
+
+  function isTableRow(line) {
+    return /^\s*\|.*\|\s*$/.test(line);
+  }
+  function isTableSeparator(line) {
+    return /^\s*\|?[\s:|-]+\|?\s*$/.test(line) && /-/.test(line);
+  }
+  function splitTableRow(line) {
+    return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+  }
+
+  function renderMarkdown(raw) {
+    const lines = escapeHtml(String(raw || '')).split('\n');
+    const html = [];
+    let list = null; // { type: 'ul'|'ol', items: [] }
+
+    function flushList() {
+      if (!list) return;
+      html.push('<' + list.type + '>' + list.items.map((it) => '<li>' + it + '</li>').join('') + '</' + list.type + '>');
+      list = null;
+    }
+
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+
+      if (isTableRow(line) && lines[i + 1] !== undefined && isTableSeparator(lines[i + 1])) {
+        flushList();
+        const headerCells = splitTableRow(line);
+        i += 2;
+        const bodyRows = [];
+        while (i < lines.length && isTableRow(lines[i])) {
+          bodyRows.push(splitTableRow(lines[i]));
+          i += 1;
+        }
+        let table = '<div class="table-scroll"><table><thead><tr>';
+        table += headerCells.map((c) => '<th>' + renderInline(c) + '</th>').join('');
+        table += '</tr></thead><tbody>';
+        bodyRows.forEach((row) => {
+          table += '<tr>' + row.map((c) => '<td>' + renderInline(c) + '</td>').join('') + '</tr>';
+        });
+        table += '</tbody></table></div>';
+        html.push(table);
+        continue;
+      }
+
+      const heading = line.match(/^(#{1,3})\s+(.*)$/);
+      if (heading) {
+        flushList();
+        const level = heading[1].length + 2; // offset so it doesn't outsize the chat bubble
+        html.push('<h' + level + '>' + renderInline(heading[2]) + '</h' + level + '>');
+        i += 1;
+        continue;
+      }
+
+      const ul = line.match(/^\s*[-*]\s+(.*)$/);
+      if (ul) {
+        if (!list || list.type !== 'ul') { flushList(); list = { type: 'ul', items: [] }; }
+        list.items.push(renderInline(ul[1]));
+        i += 1;
+        continue;
+      }
+
+      const ol = line.match(/^\s*\d+\.\s+(.*)$/);
+      if (ol) {
+        if (!list || list.type !== 'ol') { flushList(); list = { type: 'ol', items: [] }; }
+        list.items.push(renderInline(ol[1]));
+        i += 1;
+        continue;
+      }
+
+      flushList();
+      if (line.trim() === '') { i += 1; continue; }
+      html.push('<p>' + renderInline(line) + '</p>');
+      i += 1;
+    }
+    flushList();
+    return html.join('');
+  }
+
+  function appendMessage(role, content, sources = [], externalWarning = false) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + (role === 'user' ? 'user' : 'bot');
+
+    if (role !== 'user' && externalWarning) {
+      const banner = document.createElement('div');
+      banner.className = 'banner-external';
+      banner.textContent = EXTERNAL_BANNER;
+      wrap.appendChild(banner);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    if (role === 'user') {
+      bubble.textContent = content;
+    } else {
+      bubble.innerHTML = renderMarkdown(content);
+    }
+    wrap.appendChild(bubble);
+
+    if (role !== 'user' && sources.length) {
+      const srcWrap = document.createElement('div');
+      srcWrap.className = 'sources';
+      sources.forEach((s) => {
+        const badge = document.createElement('span');
+        badge.className = 'source-badge';
+        badge.textContent = 'Source: ' + s;
+        srcWrap.appendChild(badge);
+      });
+      wrap.appendChild(srcWrap);
+    }
+
+    chatLog.appendChild(wrap);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  async function sendMessage(text) {
+    enterConversation();
+    appendMessage('user', text);
+    history.push({ role: 'user', content: text });
+
+    const chat = getActiveChat();
+    chat.messages.push({ role: 'user', content: text });
+    if (chat.title === 'New chat') {
+      chat.title = text.length > 42 ? text.slice(0, 42) + '…' : text;
+    }
+    saveChatsState();
+    renderSidebarList();
+
+    chatInput.value = '';
+    typingEl.hidden = false;
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history: history.slice(-10) }),
+      });
+      const payload = await res.json();
+      typingEl.hidden = true;
+
+      if (!res.ok || !payload.success) {
+        appendMessage('bot', 'Error: ' + (payload.error || 'request failed'));
+        return;
+      }
+      const data = payload.data;
+      appendMessage('bot', data.content, data.sources || [], data.externalWarning);
+      history.push({ role: 'assistant', content: data.content });
+      chat.messages.push({ role: 'assistant', content: data.content, sources: data.sources || [], externalWarning: data.externalWarning });
+      saveChatsState();
+    } catch (err) {
+      typingEl.hidden = true;
+      appendMessage('bot', 'Network error: ' + err.message);
+    }
+  }
+
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text) return;
+    sendMessage(text);
+  });
+
+  document.querySelectorAll('.qa-card').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const prompt = btn.getAttribute('data-prompt');
+      if (prompt === '__focus__') {
+        chatInput.focus();
+        return;
+      }
+      sendMessage(prompt);
+    });
+  });
+
+  async function refreshStatus() {
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      const counts = Object.entries(data.stats).map(([k, v]) => k + ':' + v.count).join('  ');
+      const aiLabel = data.ai && data.ai.provider ? 'AI: ' + data.ai.provider : 'AI: not configured';
+      statusText.textContent = (data.mockMode ? 'MOCK' : 'LIVE') + '  |  ' + counts + '  |  ' + aiLabel;
+      statusDot.classList.add('ok');
+    } catch {
+      statusText.textContent = 'status unavailable';
+      statusDot.classList.remove('ok');
+    }
+  }
+
+  const excelFile = document.getElementById('excel-file');
+  const adminLog = document.getElementById('admin-log');
+  const adminToggle = document.getElementById('admin-toggle');
+  const adminPanel = document.getElementById('admin-panel');
+
+  const SOURCE_LABELS = {
+    historical: 'Historical Results',
+    contingent: 'Contingent Roster',
+    schedule: 'Competition Schedule',
+    highlights: 'Sport Highlights',
+  };
+
+  function describeSourceSync(label, r) {
+    if (r.error) return label + ': failed - ' + r.error;
+    const changes = [];
+    if (r.inserted) changes.push(r.inserted + ' new');
+    if (r.updated) changes.push(r.updated + ' updated');
+    if (r.invalid) changes.push(r.invalid + ' invalid');
+    return label + ': ' + r.total + ' total (' + (changes.length ? changes.join(', ') : 'no changes') + ')';
+  }
+
+  function looksLikeSourceResult(r) {
+    return Boolean(r) && typeof r === 'object' && ('total' in r || 'error' in r);
+  }
+
+  // Renders either the full /api/sync shape ({historical:{...}, contingent:{...}, ...})
+  // or the single-source /api/upload-excel shape ({inserted, updated, ...}) as
+  // readable text instead of a raw JSON dump. A source that failed to sync
+  // has an "error" but no "total" - looksLikeSourceResult() must accept
+  // either, or a single failed source wrongly collapses the whole result
+  // into the single-source fallback branch.
+  function formatSyncResult(result) {
+    if (!result || typeof result !== 'object') return String(result);
+    const keys = Object.keys(result);
+    const isPerSource = keys.length > 0 && keys.every((k) => looksLikeSourceResult(result[k]));
+    if (isPerSource) {
+      return keys.map((k) => describeSourceSync(SOURCE_LABELS[k] || k, result[k])).join('\n');
+    }
+    return describeSourceSync('Historical Results', result);
+  }
+
+  adminToggle.addEventListener('click', () => {
+    const willShow = adminPanel.hidden;
+    adminPanel.hidden = !willShow;
+    adminToggle.setAttribute('aria-expanded', String(willShow));
+  });
+
+  document.getElementById('attach-btn').addEventListener('click', () => excelFile.click());
+
+  document.getElementById('sync-btn').addEventListener('click', async () => {
+    adminLog.hidden = false;
+    adminLog.textContent = 'Syncing...';
+    try {
+      const res = await fetch('/api/sync', { method: 'POST' });
+      const data = await res.json();
+      adminLog.textContent = data.success ? formatSyncResult(data.result) : 'Sync failed: ' + data.error;
+      refreshStatus();
+    } catch (err) {
+      adminLog.textContent = 'Sync failed: ' + err.message;
+    }
+  });
+
+  document.getElementById('upload-btn').addEventListener('click', () => excelFile.click());
+
+  excelFile.addEventListener('change', async () => {
+    if (!excelFile.files.length) return;
+    const form = new FormData();
+    form.append('file', excelFile.files[0]);
+    adminLog.hidden = false;
+    adminLog.textContent = 'Uploading...';
+    try {
+      const res = await fetch('/api/upload-excel', { method: 'POST', body: form });
+      const data = await res.json();
+      adminLog.textContent = data.success ? formatSyncResult(data.result) : 'Upload failed: ' + data.error;
+      refreshStatus();
+    } catch (err) {
+      adminLog.textContent = 'Upload failed: ' + err.message;
+    } finally {
+      excelFile.value = '';
+    }
+  });
+
+  document.getElementById('new-chat-btn').addEventListener('click', () => startNewChat());
+
+  // Every page load starts a genuinely fresh conversation - the previous
+  // one (if it had any messages) stays in the sidebar history rather than
+  // being resumed automatically.
+  const lastActiveChat = getActiveChat();
+  if (lastActiveChat && lastActiveChat.messages.length) {
+    startNewChat();
+  } else {
+    renderActiveChatIntoLog();
+    renderSidebarList();
+  }
+  refreshStatus();
+</script>
+</body>
+</html>

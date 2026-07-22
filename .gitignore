@@ -1,0 +1,8 @@
+node_modules/
+.env
+npm-debug.log*
+
+# Generated fixtures / uploads (regenerate with `npm run seed`)
+data/historical/*.xlsx
+data/uploads/*
+!data/uploads/.gitkeep
