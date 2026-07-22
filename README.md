@@ -142,3 +142,87 @@ curl -X POST http://localhost:3000/api/chat \
 
 - The datastore is in-memory (`Map`-backed) and rebuilt from source on every sync; there is no separate persistence layer to manage.
 - Re-syncing is idempotent: unchanged rows are skipped, changed rows (e.g. a schedule result finalizing) are updated in place, both keyed by a deterministic SHA-256 id derived from each row's business key, with a separate content hash used to detect changes (`src/ingestion/baseAdapter.js`).
+
+## 7. Deploying to Google Cloud (Cloud Run)
+
+The app is a single stateless HTTP process, which maps cleanly onto Cloud Run:
+it already reads its port from `process.env.PORT` (`config/environment.js`),
+and there's a `Dockerfile` / `.dockerignore` in the repo root.
+
+**State caveat first:** the datastore is in-memory only (see Notes above). If
+you scale to more than one Cloud Run instance, data pulled from Google Sheets
+/ the local Excel/Markdown files stays consistent across instances (each
+instance independently syncs from the same source), but anything pushed via
+the `/api/upload` endpoint only lands on the instance that handled that
+request. If you rely on manual uploads, either pin `--max-instances=1` or
+treat uploads as a MOCK_MODE/dev-only convenience.
+
+### One-time setup
+
+```bash
+gcloud config set project <YOUR_PROJECT_ID>
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com \
+  secretmanager.googleapis.com cloudbuild.googleapis.com
+
+gcloud artifacts repositories create teamsg-media-chatbot \
+  --repository-format=docker \
+  --location=asia-southeast1
+```
+
+Put real secrets in Secret Manager rather than as plain env vars — at
+minimum `GEMINI_API_KEY` (or `OPENAI_API_KEY`) and `GOOGLE_PRIVATE_KEY`:
+
+```bash
+printf '%s' "$GEMINI_API_KEY" | gcloud secrets create GEMINI_API_KEY --data-file=-
+printf '%s' "$GOOGLE_PRIVATE_KEY" | gcloud secrets create GOOGLE_PRIVATE_KEY --data-file=-
+```
+
+(On Windows/PowerShell, replace the `printf | gcloud` pipe with
+`gcloud secrets create GEMINI_API_KEY --data-file=path\to\key.txt`.)
+
+### Deploy
+
+From the project root, with the real `data/historical/*.xlsx` and
+`data/highlights/*.md` files present on disk (they're gitignored but not
+dockerignored, so `--source .` bakes in whatever is currently there):
+
+```bash
+gcloud run deploy teamsg-media-chatbot \
+  --source . \
+  --region asia-southeast1 \
+  --allow-unauthenticated \
+  --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_PRIVATE_KEY=GOOGLE_PRIVATE_KEY:latest" \
+  --set-env-vars="MOCK_MODE=false,AI_PROVIDER=gemini,GEMINI_MODEL=gemini-flash-lite-latest,GOOGLE_SERVICE_ACCOUNT_EMAIL=<service-account>@<project>.iam.gserviceaccount.com,GOOGLE_SHEET_ID_CONTINGENT=<id>,GOOGLE_SHEET_ID_SCHEDULE=<id>"
+```
+
+Adjust `--set-env-vars` for whichever of `config/environment.js`'s optional
+fields you need to override (`GOOGLE_CONTINGENT_RANGE`, `GOOGLE_SCHEDULE_RANGE`,
+`GOOGLE_DEBUTANT_RANGE`, `WEB_SEARCH_ENABLED`, etc.) — anything not passed
+just falls back to its default. `--allow-unauthenticated` makes the chatbot
+publicly reachable; drop it (and front the service with IAP or your own
+auth) if this needs to stay internal.
+
+`gcloud run deploy --source .` builds via Cloud Build and deploys in one
+step, so the `Dockerfile` above is all that's required — no separate `docker
+build`/`push` needed for a one-off deploy.
+
+### Optional: CI/CD via Cloud Build
+
+`cloudbuild.yaml` in the repo root builds the image, pushes it to Artifact
+Registry, and deploys to Cloud Run — wire it up with a trigger on your
+GitHub repo:
+
+```bash
+gcloud builds triggers create github \
+  --repo-name=<your-repo> \
+  --repo-owner=<your-github-username> \
+  --branch-pattern="^main$" \
+  --build-config=cloudbuild.yaml
+```
+
+Because this builds from the GitHub repo (not local disk), the gitignored
+`data/historical/*.xlsx` and `data/highlights/*.md` files won't be present in
+that build context — Source 1 (historical Excel) and Source 4 (highlights)
+will come up empty until you either commit sanitized versions of those files,
+mount them from Cloud Storage at startup, or keep using the manual
+`--source .` deploy path above for those two sources.

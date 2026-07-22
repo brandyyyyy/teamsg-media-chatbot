@@ -1,0 +1,46 @@
+# Optional CI/CD: builds the container and deploys it to Cloud Run.
+# Not required for a manual deploy (see README "Deploying to Google Cloud"
+# section) - this is only used if you wire up a Cloud Build trigger, e.g.:
+#
+#   gcloud builds triggers create github \
+#     --repo-name=teamsg-media-chatbot \
+#     --repo-owner=<your-github-username> \
+#     --branch-pattern="^main$" \
+#     --build-config=cloudbuild.yaml
+#
+# Building from the GitHub repo means data/historical/*.xlsx and
+# data/highlights/*.md (gitignored) will NOT be baked into the image - see
+# the README for how to handle that for a CI/CD-driven deploy.
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${COMMIT_SHA}'
+      - .
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${COMMIT_SHA}'
+
+  - name: 'gcr.io/google-cloud-sdk/slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - '${_SERVICE}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${COMMIT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${COMMIT_SHA}'
+
+substitutions:
+  _REGION: asia-southeast1
+  _REPOSITORY: teamsg-media-chatbot
+  _SERVICE: teamsg-media-chatbot
+
+options:
+  logging: CLOUD_LOGGING_ONLY
