@@ -82,7 +82,7 @@ The server cold-boot-syncs all 4 sources on startup, then re-syncs every `SYNC_I
 
 ## 4. Strict data-grounding guarantees
 
-- Every row ingested carries a `source` field (e.g. `past_results.xlsx`, `Google Sheet - Competition Schedule and Results`, `swimming.md`). The AI system prompt requires every factual sentence in a response to end with `(Source: <value>)`.
+- Every row ingested carries a `source` field (e.g. `past_results.xlsx`, `Google Sheet ("Schedule" tab)`, `swimming.md`) - for Google Sheets sources, the tab name is read from the configured range (`GOOGLE_CONTINGENT_RANGE`/`GOOGLE_SCHEDULE_RANGE`), so it always matches whatever tab that data actually lives in. The AI system prompt requires every factual sentence in a response to end with `(Source: <value>)`.
 - If local tools return nothing and `WEB_SEARCH_ENABLED=true`, the AI may call `web_search`, but must prefix that part of the answer with the exact banner:
   `[SOURCE: EXTERNAL WEB ENGINE - UNVERIFIED LOCAL SCHEMA]`
   followed by the URL.

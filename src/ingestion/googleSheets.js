@@ -28,6 +28,23 @@ function normalizeRecordType(value) {
   return tokens.find((t) => KNOWN_RECORD_TYPES.includes(t)) || null;
 }
 
+/**
+ * Extracts the tab name a range refers to (e.g. "Contingent!A1:Z1000" ->
+ * "Contingent"), so citations can name the actual sheet/tab a fact came
+ * from instead of a generic hardcoded label. Handles the quoted form
+ * Sheets uses for tab names containing spaces ("'Debutant Status'!A2:I200"),
+ * including the doubled-quote escaping for a literal ' in a tab name.
+ */
+function tabNameFromRange(range) {
+  const idx = range.lastIndexOf('!');
+  if (idx === -1) return range;
+  const name = range.slice(0, idx);
+  if (name.startsWith("'") && name.endsWith("'")) {
+    return name.slice(1, -1).replace(/''/g, "'");
+  }
+  return name;
+}
+
 function getAuth() {
   const privateKey = (config.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
   return new google.auth.JWT({
@@ -68,7 +85,8 @@ async function fetchSheetRows(sheetId, range) {
  */
 class ContingentSheetAdapter extends BaseAdapter {
   constructor() {
-    super({ sourceId: 'contingent_sheet', sourceLabel: 'Google Sheet - Contingent Details' });
+    const tabName = tabNameFromRange(config.GOOGLE_CONTINGENT_RANGE);
+    super({ sourceId: 'contingent_sheet', sourceLabel: `Google Sheet ("${tabName}" tab)` });
     // athleteName (uppercased) -> literal 'Yes'/'No' from the Debutant
     // Status tab, populated by fetchRaw(). A separate tab (one row per
     // athlete) rather than a column on the main roster tab (one row per
@@ -149,7 +167,8 @@ class ContingentSheetAdapter extends BaseAdapter {
  */
 class ScheduleSheetAdapter extends BaseAdapter {
   constructor() {
-    super({ sourceId: 'schedule_sheet', sourceLabel: 'Google Sheet - Competition Schedule and Results' });
+    const tabName = tabNameFromRange(config.GOOGLE_SCHEDULE_RANGE);
+    super({ sourceId: 'schedule_sheet', sourceLabel: `Google Sheet ("${tabName}" tab)` });
   }
 
   async fetchRaw() {
