@@ -58,6 +58,10 @@ const ScheduleRowSchema = BaseRowSchema.extend({
   heatNumber: z.string(),
   athleteName: z.string(),
   country: z.string(),
+  // Head-to-head events only (e.g. Bowls, combat sports) - blank for
+  // individual-performance events with no direct opponent (e.g. Swimming).
+  opponentAthleteName: z.string(),
+  opponentCountry: z.string(),
   resultMark: z.string(),
   medal: z.enum(['GOLD', 'SILVER', 'BRONZE']).nullable(),
   recordType: z.enum(['PB', 'GR', 'WR', 'NR', 'SB']).nullable(),

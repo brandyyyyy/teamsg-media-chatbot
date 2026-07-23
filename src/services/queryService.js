@@ -34,7 +34,7 @@ function sportMatches(row, sport) {
 // contentHash, sourceId, ...) or executing arbitrary code.
 const QUERYABLE_FIELDS = {
   historical: ['athleteName', 'sport', 'sportGroup', 'games', 'year', 'medal', 'event', 'country'],
-  schedule: ['athleteName', 'sport', 'event', 'round', 'medal', 'recordType', 'status', 'date'],
+  schedule: ['athleteName', 'sport', 'event', 'round', 'medal', 'recordType', 'status', 'date', 'opponentAthleteName', 'opponentCountry'],
   contingent: ['athleteName', 'sport', 'event', 'eligibility', 'status', 'debutantStatus'],
 };
 
@@ -532,40 +532,30 @@ class QueryService {
     const contingentRows = this.getContingent({});
     const bySport = new Map();
     for (const r of contingentRows) {
-      if (!bySport.has(r.sport.toLowerCase())) bySport.set(r.sport.toLowerCase(), r);
+      if (!bySport.has(r.sport.toLowerCase())) bySport.set(r.sport.toLowerCase(), r.sport);
     }
 
     const historicalRows = dataStore.getAll(
       'historical',
       (r) => r.medal && r.games.toLowerCase() === games.toLowerCase()
     );
-    // lower sport name -> most recent { year, source }
-    const lastMedalBySport = new Map();
+    const lastMedalYearBySport = new Map();
     for (const r of historicalRows) {
       const year = Number(r.year);
       if (Number.isNaN(year)) continue;
       for (const key of [r.sport, r.sportGroup]) {
         if (!key) continue;
         const lower = key.toLowerCase();
-        const existing = lastMedalBySport.get(lower);
-        if (!existing || existing.year < year) lastMedalBySport.set(lower, { year, source: r.source });
+        if (!lastMedalYearBySport.has(lower) || lastMedalYearBySport.get(lower) < year) {
+          lastMedalYearBySport.set(lower, year);
+        }
       }
     }
 
     return [...bySport.entries()]
-      .map(([lower, contingentRow]) => {
-        const medalInfo = lastMedalBySport.get(lower);
-        return {
-          sport: contingentRow.sport,
-          games,
-          hasWonMedalBefore: Boolean(medalInfo),
-          lastMedalYear: medalInfo ? medalInfo.year : null,
-          // Cite whichever fact this row is actually asserting: the historical
-          // medal record if one was found, otherwise the contingent roster
-          // (the only source for "TeamSG competes in this sport" when no
-          // medal history exists).
-          source: medalInfo ? medalInfo.source : contingentRow.source,
-        };
+      .map(([lower, sport]) => {
+        const lastMedalYear = lastMedalYearBySport.has(lower) ? lastMedalYearBySport.get(lower) : null;
+        return { sport, games, hasWonMedalBefore: lastMedalYear !== null, lastMedalYear };
       })
       .sort((a, b) => a.sport.localeCompare(b.sport));
   }

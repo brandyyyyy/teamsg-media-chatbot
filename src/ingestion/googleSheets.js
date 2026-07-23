@@ -216,6 +216,8 @@ class ScheduleSheetAdapter extends BaseAdapter {
       heatNumber: raw['HEAT NUMBER'] || '',
       athleteName: raw['NAME OF ATHLETE (SGP)'] || raw.AthleteName || raw.athleteName || '',
       country: raw.Country || raw.country || 'SGP',
+      opponentAthleteName: raw['NAME OF ATHLETE (COMPETITOR)'] || raw.opponentAthleteName || '',
+      opponentCountry: raw['COUNTRY NAME (COMPETITOR)'] || raw.opponentCountry || '',
       resultMark,
       // MEDAL COLOUR is a separate column from MEDAL in the live sheet
       // (mirroring the historical Excel's MEDAL_COLOUR) - neither has any
