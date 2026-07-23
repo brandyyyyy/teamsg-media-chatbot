@@ -203,6 +203,17 @@
     line-height: 1.55;
     white-space: pre-wrap;
     word-wrap: break-word;
+    /* .msg uses align-items: flex-start (not stretch), so without an
+       explicit cap .bubble sizes to fit its content - a wide table (nowrap
+       cells) then grows the bubble past .msg's max-width entirely. That
+       overflow doesn't reach the page (an overflow-y:auto with no
+       overflow-x set makes #chat-log's overflow-x implicitly "auto" per
+       the CSS spec), so it silently scrolled the whole chat log sideways
+       instead of the table's own .table-scroll - invisibly, with no
+       scrollbar the user would think to use. Capping width here forces the
+       table's own overflow-x:auto to be what actually handles it. */
+    max-width: 100%;
+    min-width: 0;
   }
   .msg.user .bubble { background: var(--user-bubble); border-bottom-right-radius: 4px; }
   .msg.bot .bubble { background: var(--bot-bubble); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
