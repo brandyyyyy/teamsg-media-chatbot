@@ -60,6 +60,12 @@
   }
   .sidebar-new-chat:hover { opacity: 0.92; }
   .sidebar-new-chat svg { width: 16px; height: 16px; flex-shrink: 0; }
+  /* Unlike every other icon here, these two had no explicit size - a bare
+     <svg viewBox="..."> with no width/height falls back to inconsistent
+     default sizing across browsers (can render oversized, clipped, or
+     effectively invisible depending on the engine), rather than the 1:1
+     mapping to the viewBox the other icons get from an explicit size. */
+  .sidebar-toggle-btn svg, .sidebar-close-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
   .sidebar-heading { font-size: 10.5px; letter-spacing: 0.5px; color: var(--muted-2); padding: 0 8px 6px; }
   .sidebar-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
   .sidebar-item {
