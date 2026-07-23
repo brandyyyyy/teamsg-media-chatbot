@@ -349,6 +349,85 @@
     text-align: center;
   }
 
+  /* ---------- Mobile: sidebar becomes a slide-in drawer ---------- */
+  .sidebar-toggle-btn, .sidebar-close-btn { display: none; }
+  .sidebar-overlay { display: none; }
+
+  @media (max-width: 768px) {
+    .sidebar-toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: none;
+      color: var(--text);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .sidebar-toggle-btn:hover { background: rgba(0, 0, 0, 0.05); }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 82vw;
+      max-width: 300px;
+      z-index: 50;
+      transform: translateX(-100%);
+      transition: transform 0.22s ease;
+      box-shadow: 2px 0 16px rgba(0, 0, 0, 0.15);
+    }
+    .sidebar.open { transform: translateX(0); }
+
+    .sidebar-overlay {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 40;
+    }
+    .sidebar-overlay[hidden] { display: none; }
+
+    .sidebar-close-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .sidebar-top-row { display: flex; align-items: center; gap: 8px; }
+    .sidebar-top-row .sidebar-new-chat { margin-bottom: 0; flex: 1; }
+
+    header { padding: 12px 14px; }
+    .brand-name { font-size: 15px; }
+    .status-pill #status-text { display: none; }
+    .avatar { width: 30px; height: 30px; font-size: 11px; }
+
+    main { padding: 4px 14px 10px; }
+    .hero-title { font-size: 26px; }
+    .hero-subtitle { font-size: 15px; margin-bottom: 20px; }
+    .quick-actions { grid-template-columns: 1fr; }
+    .qa-card { padding: 14px 46px 14px 14px; min-height: unset; }
+
+    .msg { max-width: 94%; }
+
+    .composer-area { padding: 0 14px 14px; }
+    /* 16px, not the desktop 14.5px - anything smaller makes iOS Safari
+       auto-zoom the page on focus, which then has to be manually pinched back out. */
+    #chat-input { font-size: 16px; }
+    .composer-icon-btn, .send-btn { width: 40px; height: 40px; }
+  }
+
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #16181c;
@@ -373,17 +452,26 @@
 </head>
 <body>
 <div class="app-shell">
-  <aside class="sidebar">
-    <button type="button" class="sidebar-new-chat" id="new-chat-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-      <span>New chat</span>
-    </button>
+  <div class="sidebar-overlay" id="sidebar-overlay" hidden></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top-row">
+      <button type="button" class="sidebar-new-chat" id="new-chat-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <span>New chat</span>
+      </button>
+      <button type="button" class="sidebar-close-btn" id="sidebar-close-btn" aria-label="Close chat list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
     <div class="sidebar-heading">CHATS</div>
     <div class="sidebar-list" id="chat-sidebar-list"></div>
   </aside>
 
   <div class="main-column">
     <header>
+      <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Open chat list" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
       <span class="brand-name"><span class="brand-team">TeamSG</span> Media Desk</span>
       <div class="topbar-right">
         <span class="status-pill" id="status-pill"><span class="status-dot" id="status-dot"></span><span id="status-text">checking status...</span></span>
@@ -548,11 +636,37 @@
     });
   }
 
+  // ---- Mobile sidebar drawer (sidebar is a fixed off-canvas panel under
+  // the 768px breakpoint - see CSS - so it needs an explicit open/closed
+  // state instead of just being part of the normal flex layout). ----
+  const isMobileViewport = () => window.matchMedia('(max-width: 768px)').matches;
+  const sidebarEl = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebar-overlay');
+  const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+
+  function openSidebar() {
+    sidebarEl.classList.add('open');
+    sidebarOverlay.hidden = false;
+    sidebarToggleBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeSidebar() {
+    sidebarEl.classList.remove('open');
+    sidebarOverlay.hidden = true;
+    sidebarToggleBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  sidebarToggleBtn.addEventListener('click', openSidebar);
+  sidebarOverlay.addEventListener('click', closeSidebar);
+  document.getElementById('sidebar-close-btn').addEventListener('click', closeSidebar);
+
   function switchToChat(id) {
     chatsState.activeChatId = id;
     saveChatsState();
     renderActiveChatIntoLog();
     renderSidebarList();
+    // On a phone the drawer covers the chat - picking a conversation should
+    // drop straight into it rather than leaving the drawer open over top.
+    if (isMobileViewport()) closeSidebar();
   }
 
   function startNewChat() {
@@ -566,6 +680,7 @@
     saveChatsState();
     renderActiveChatIntoLog();
     renderSidebarList();
+    if (isMobileViewport()) closeSidebar();
     chatInput.focus();
   }
 
