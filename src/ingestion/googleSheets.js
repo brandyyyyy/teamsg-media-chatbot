@@ -203,7 +203,12 @@ class ScheduleSheetAdapter extends BaseAdapter {
       '';
 
     return {
-      date: raw.DATE || raw.Date || raw.date || '',
+      // The org split the sheet's single DATE column into DATE (SGP) / DATE
+      // (UK) at some point - prefer the SGP one, consistent with every other
+      // SGP-suffixed column here (times, scores) already being the SGT side
+      // of a UK/SGP pair. Old plain "DATE" and mock-fixture fallbacks kept
+      // for compatibility.
+      date: raw['DATE (SGP)'] || raw['DATE (UK)'] || raw.DATE || raw.Date || raw.date || '',
       time: raw['TIME START (SGP) 24HR CLOCK'] || raw.Time || raw.time || '',
       sport,
       event: raw.EVENT || raw.Event || raw.event || '',
@@ -212,7 +217,11 @@ class ScheduleSheetAdapter extends BaseAdapter {
       athleteName: raw['NAME OF ATHLETE (SGP)'] || raw.AthleteName || raw.athleteName || '',
       country: raw.Country || raw.country || 'SGP',
       resultMark,
-      medal: normalizeMedal(raw.MEDAL || raw.Medal || raw.medal),
+      // MEDAL COLOUR is a separate column from MEDAL in the live sheet
+      // (mirroring the historical Excel's MEDAL_COLOUR) - neither has any
+      // real value yet (results not in), so which one the org ultimately
+      // fills in is unconfirmed; check both rather than guess-remove either.
+      medal: normalizeMedal(raw['MEDAL COLOUR'] || raw.MEDAL || raw.Medal || raw.medal),
       recordType: normalizeRecordType(recordSource),
       status: resultsFilled === 'YES' ? 'Completed' : raw.Status || raw.status || 'Scheduled',
     };
