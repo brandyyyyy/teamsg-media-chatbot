@@ -71,7 +71,8 @@ STRICT GROUNDING RULES - these override any other instinct:
     b. Clearly, structurally separate the speculative portion from the grounded portion - put grounded facts first, then introduce the analysis under an explicit heading such as "ANALYSIS (editorial interpretation, not verified data)".
     c. Never attach a "(Source: ...)" citation to a speculative sentence - citations are reserved for claims a tool actually returned. A speculative sentence must read as your own reasoning, not as sourced fact.
     d. State plainly that the analysis is interpretation/opinion, not an official TeamSG position, and that it was not confirmed by any tool.
-16. You do not have reliable access to the actual current date/time - never guess or assume it. For "next 24 hours", "today", "tomorrow", or any other time-RELATIVE schedule question, always call get_upcoming_schedule rather than pulling get_schedule and reasoning about dates yourself. State the exact nowSgt/windowEndSgt values it returns in your answer (all times are Singapore Time). Rows in "unconfirmedTime" have a placeholder time (e.g. "TBC") rather than a confirmed kickoff - present these separately and label them as time-to-be-confirmed, never as if they have a known start time. For a specific named calendar date ("what's on 23 July"), use get_schedule's "date" filter instead - pass the date in whatever format the user gave it, it is parsed flexibly, not matched as an exact string. If a date genuinely can't be parsed, the tool returns an error - tell the user rather than silently reporting no results.`;
+16. For "sport by sport, when did each sport last win a medal" / "which sports have won before and which year" style questions covering the whole current contingent, call get_sport_medal_history once rather than calling get_medal_summary/aggregate_data per sport - it already covers every currently-competing sport and states hasWonMedalBefore/lastMedalYear per sport in one result. It carries the same debut-caveat as get_contingent_sports_without_history (rule 13): hasWonMedalBefore: false means no medal ever won at that Games, not a confirmed "first time competing" - phrase it that way.
+17. You do not have reliable access to the actual current date/time - never guess or assume it. For "next 24 hours", "today", "tomorrow", or any other time-RELATIVE schedule question, always call get_upcoming_schedule rather than pulling get_schedule and reasoning about dates yourself. State the exact nowSgt/windowEndSgt values it returns in your answer (all times are Singapore Time). Rows in "unconfirmedTime" have a placeholder time (e.g. "TBC") rather than a confirmed kickoff - present these separately and label them as time-to-be-confirmed, never as if they have a known start time. For a specific named calendar date ("what's on 23 July"), use get_schedule's "date" filter instead - pass the date in whatever format the user gave it, it is parsed flexibly, not matched as an exact string. If a date genuinely can't be parsed, the tool returns an error - tell the user rather than silently reporting no results.`;
 
 // Neutral tool specs: `parameters` is plain JSON Schema, consumed as-is by
 // OpenAI's `parameters` field and Gemini's `parametersJsonSchema` field.
@@ -189,6 +190,20 @@ const TOOL_SPECS = [
     },
   },
   {
+    name: 'get_sport_medal_history',
+    description:
+      'For every sport in the current TeamSG contingent: whether TeamSG has ever won a medal at a given past Games, and if so, the most recent year they did. Use this for any "sport by sport" / "which sports have won before and when" / "last time each sport won a medal" question - it covers every currently-competing sport in one call instead of looking each one up individually. Same caveat as get_contingent_sports_without_history: the historical archive only records MEDAL-WINNING results for SEA/Asian/Commonwealth Games (full participation without a medal is only tracked for Olympic Games), so hasWonMedalBefore: false means "no medal on record at that Games", not confirmed proof the sport was never contested before - state that distinction rather than asserting a confirmed debut.',
+    parameters: {
+      type: 'object',
+      properties: {
+        games: {
+          type: 'string',
+          description: 'Which past Games to check medal history against, e.g. "Commonwealth Games". Defaults to "Commonwealth Games".',
+        },
+      },
+    },
+  },
+  {
     name: 'aggregate_data',
     description:
       'Flexible group/count/sort query for analytical questions that have no dedicated tool - e.g. "most medalled athlete", "which sport has won the most medals", "which year had the most golds", "most common event", "how many debutants". Groups matching rows by a field and counts them accurately, so you can answer novel aggregate questions directly from real data instead of guessing or counting rows yourself. This is NOT a general database query - only grouping, exact-match filtering, and counting on known fields is supported, nothing broader. Team-event rows with multiple athlete names in one entry are automatically split so each athlete is credited individually when grouping by athleteName. The contingent collection has one row per athlete PER EVENT, so any contingent query NOT grouped by athleteName (e.g. grouping by debutantStatus, eligibility, sport) automatically counts distinct athletes, not rows - no extra flag needed.',
@@ -275,6 +290,7 @@ const ARG_SCHEMAS = {
   get_contingent: z.object({ sport: z.string().optional(), athleteName: z.string().optional() }),
   get_contingent_summary: z.object({}),
   get_contingent_sports_without_history: z.object({ games: z.string().min(1) }),
+  get_sport_medal_history: z.object({ games: z.string().optional() }),
   aggregate_data: z.object({
     collection: z.enum(['historical', 'schedule', 'contingent']),
     groupBy: z.string().min(1),
@@ -418,6 +434,8 @@ async function executeTool(name, rawArgs) {
       return capForModel(queryService.getContingentSummary());
     case 'get_contingent_sports_without_history':
       return capForModel(queryService.getContingentSportsWithoutHistory(args));
+    case 'get_sport_medal_history':
+      return capForModel(queryService.getSportMedalHistory(args));
     case 'aggregate_data':
       return capForModel(queryService.aggregate(args));
     case 'get_athlete_age_extremes':

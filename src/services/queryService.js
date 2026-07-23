@@ -518,6 +518,58 @@ class QueryService {
       .sort((a, b) => a.sport.localeCompare(b.sport));
   }
 
+  /**
+   * For every sport in the current TeamSG contingent: whether TeamSG has
+   * ever won a medal at the given past Games, and if so, the most recent
+   * year they did - a "sport by sport" debut/history breakdown. Same
+   * medal-archive caveat as getContingentSportsWithoutHistory(): the
+   * historical archive only records MEDAL-WINNING results for
+   * SEA/Asian/Commonwealth Games (full participation is only tracked for
+   * Olympic Games), so "no medal" here means "no medal ever won at that
+   * Games", not proof the sport was never contested before.
+   */
+  getSportMedalHistory({ games = 'Commonwealth Games' } = {}) {
+    const contingentRows = this.getContingent({});
+    const bySport = new Map();
+    for (const r of contingentRows) {
+      if (!bySport.has(r.sport.toLowerCase())) bySport.set(r.sport.toLowerCase(), r);
+    }
+
+    const historicalRows = dataStore.getAll(
+      'historical',
+      (r) => r.medal && r.games.toLowerCase() === games.toLowerCase()
+    );
+    // lower sport name -> most recent { year, source }
+    const lastMedalBySport = new Map();
+    for (const r of historicalRows) {
+      const year = Number(r.year);
+      if (Number.isNaN(year)) continue;
+      for (const key of [r.sport, r.sportGroup]) {
+        if (!key) continue;
+        const lower = key.toLowerCase();
+        const existing = lastMedalBySport.get(lower);
+        if (!existing || existing.year < year) lastMedalBySport.set(lower, { year, source: r.source });
+      }
+    }
+
+    return [...bySport.entries()]
+      .map(([lower, contingentRow]) => {
+        const medalInfo = lastMedalBySport.get(lower);
+        return {
+          sport: contingentRow.sport,
+          games,
+          hasWonMedalBefore: Boolean(medalInfo),
+          lastMedalYear: medalInfo ? medalInfo.year : null,
+          // Cite whichever fact this row is actually asserting: the historical
+          // medal record if one was found, otherwise the contingent roster
+          // (the only source for "TeamSG competes in this sport" when no
+          // medal history exists).
+          source: medalInfo ? medalInfo.source : contingentRow.source,
+        };
+      })
+      .sort((a, b) => a.sport.localeCompare(b.sport));
+  }
+
   getHighlights({ sport } = {}) {
     return dataStore.getAll('highlights', (r) => sportMatches(r, sport));
   }
