@@ -238,9 +238,181 @@ class ScheduleSheetAdapter extends BaseAdapter {
   }
 }
 
+/**
+ * PB/NR pre-Games reference baselines - same spreadsheet as Schedule
+ * (GOOGLE_SHEET_ID_SCHEDULE), tab "[CWG] PB, NR, GR". One row per
+ * athlete+event: the athlete's personal best going into the Games, and the
+ * event's standing national record. Deliberately does NOT include Games
+ * Records - no GR column exists in this tab (confirmed against both this
+ * tab and its sibling "PB, NR, GR"), since a GR can only be set/broken
+ * live during the Games rather than pre-populated as a reference baseline.
+ * GR achievements stay sourced from the schedule collection's own
+ * recordType field (ScheduleSheetAdapter above), unaffected by this class.
+ */
+class PbNrReferenceSheetAdapter extends BaseAdapter {
+  constructor() {
+    const tabName = tabNameFromRange(config.GOOGLE_PB_NR_RANGE);
+    super({ sourceId: 'pb_nr_reference_sheet', sourceLabel: `Google Sheet ("${tabName}" tab)` });
+  }
+
+  async fetchRaw() {
+    if (!config.GOOGLE_SHEET_ID_SCHEDULE) {
+      throw new Error('GOOGLE_SHEET_ID_SCHEDULE is not configured');
+    }
+    try {
+      return await fetchSheetRows(config.GOOGLE_SHEET_ID_SCHEDULE, config.GOOGLE_PB_NR_RANGE);
+    } catch (err) {
+      throw new Error(`Failed to fetch PB/NR reference sheet: ${err.message}`);
+    }
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  normalize(raw) {
+    const sportGroup = raw.SPORT || '';
+    const event = raw.EVENT || '';
+    if (!sportGroup || !event) return null;
+
+    return {
+      athleteName: raw['ATHLETE NAME(S)'] || '',
+      // DISCIPLINE is the specific sport (e.g. "Diving") under the broader
+      // SPORT category (e.g. "Aquatics") - same sport/sportGroup split used
+      // for historical rows. Some rows have DISCIPLINE === SPORT verbatim.
+      sport: raw.DISCIPLINE || sportGroup,
+      sportGroup,
+      eventGender: raw['EVENT GENDER'] || '',
+      event,
+      personalBest: raw['Personal Best/Best Performance (Numeric)'] || '',
+      personalBestObtainedAt: raw['Personal Best/Best Performance Obtained At'] || '',
+      remarks: raw.REMARKS || '',
+      nationalRecord: raw['National Record (Numeric)'] || '',
+      asOfDate: raw.DATE || '',
+      // The sheet's own ready-made unique key (Sport|Discipline|Gender|Event|Athlete).
+      _businessKeyOverride: raw['SDEGE-ATHLETE KEY'] || undefined,
+    };
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  getBusinessKey(row) {
+    return `${row.sportGroup}|${row.sport}|${row.eventGender}|${row.event}|${row.athleteName}`;
+  }
+}
+
+/**
+ * Pull a sheet range as a raw grid (array of arrays), unlike fetchSheetRows -
+ * needed for the Highlights spreadsheet, which isn't one-row-per-record: each
+ * tab is a matrix with one column per sport and labeled rows (Sport, HPSM,
+ * Summaries, Highlights, ...) running down it, so there's no single header
+ * row to key objects off of.
+ */
+async function fetchSheetGrid(sheetId, range) {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: 'v4', auth });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range });
+  return res.data.values || [];
+}
+
+async function fetchSheetTabTitles(sheetId) {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: 'v4', auth });
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  return (res.data.sheets || []).map((s) => s.properties.title);
+}
+
+/**
+ * Source 4: Sport Highlights - sport-officer-authored narrative content,
+ * replacing the old local data/highlights/*.md files. The spreadsheet has
+ * one tab per sport CATEGORY (Podium, Potential, Team, Participation, Para
+ * Sports, ...) - tabs are discovered dynamically rather than hardcoded, so
+ * the org can rename/add/remove category tabs without a code change.
+ *
+ * Each tab is a transposed matrix, not one-row-per-record: column A holds
+ * row LABELS (Sport, HPSM, Final Medal Tally, Summaries, Highlights, ...),
+ * and each subsequent column is one sport, e.g.:
+ *   Sport      | Swimming        | Athletics
+ *   HPSM       | Nicole Chua     | Shakir Juanda
+ *   Summaries  | <narrative...>  | <narrative...>
+ *   Highlights | <narrative...>  | <narrative...>
+ * A label can also repeat down the tab (e.g. two separate "Summaries" rows
+ * for the same sport, one per athlete) - every non-empty cell in a sport's
+ * column is folded into that sport's content, labeled by its row.
+ */
+class HighlightsSheetAdapter extends BaseAdapter {
+  constructor() {
+    super({ sourceId: 'highlights_sheet', sourceLabel: 'Google Sheet (Highlights)' });
+  }
+
+  async fetchRaw() {
+    if (!config.GOOGLE_SHEET_ID_HIGHLIGHTS) {
+      throw new Error('GOOGLE_SHEET_ID_HIGHLIGHTS is not configured');
+    }
+    const sheetId = config.GOOGLE_SHEET_ID_HIGHLIGHTS;
+
+    let tabTitles;
+    try {
+      tabTitles = await fetchSheetTabTitles(sheetId);
+    } catch (err) {
+      throw new Error(`Failed to fetch Highlights spreadsheet metadata: ${err.message}`);
+    }
+
+    const rawRows = [];
+    for (const tabTitle of tabTitles) {
+      let grid;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        grid = await fetchSheetGrid(sheetId, `'${tabTitle}'!A1:Z500`);
+      } catch (err) {
+        throw new Error(`Failed to fetch Highlights tab "${tabTitle}": ${err.message}`);
+      }
+      if (grid.length < 2) continue; // header row only (or empty) - no sport columns yet
+
+      const headerRow = grid[0];
+      for (let col = 1; col < headerRow.length; col += 1) {
+        const sportName = String(headerRow[col] || '').trim();
+        if (!sportName) continue;
+
+        const parts = [];
+        for (let r = 1; r < grid.length; r += 1) {
+          const label = String((grid[r] && grid[r][0]) || '').trim();
+          if (!label || label.toLowerCase() === 'sport') continue;
+          const cell = String((grid[r] && grid[r][col]) || '').trim();
+          if (!cell) continue;
+          parts.push(`${label}:\n${cell}`);
+        }
+        if (!parts.length) continue; // nothing entered for this sport yet
+
+        rawRows.push({ tabTitle, sport: sportName, content: parts.join('\n\n') });
+      }
+    }
+    return rawRows;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  normalize(raw) {
+    if (!raw.sport || !raw.content) return null;
+    return {
+      sport: raw.sport,
+      fileName: `${raw.tabTitle} / ${raw.sport}`,
+      content: raw.content,
+      updatedAt: new Date().toISOString(),
+      // Cite the specific category tab, not a generic spreadsheet-wide label.
+      _sourceOverride: `Google Sheet ("${raw.tabTitle}" tab)`,
+      // Reconstructed from tab+sport rather than fileName, since fileName
+      // itself is just tab+sport joined for display.
+      _businessKeyOverride: `${raw.tabTitle}|${raw.sport}`,
+    };
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  getBusinessKey(row) {
+    return row.fileName;
+  }
+}
+
 module.exports = {
   ContingentSheetAdapter,
   ScheduleSheetAdapter,
+  HighlightsSheetAdapter,
+  PbNrReferenceSheetAdapter,
   normalizeMedal,
   normalizeRecordType,
   fetchSheetRows,

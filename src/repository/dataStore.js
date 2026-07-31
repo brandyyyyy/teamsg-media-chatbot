@@ -75,11 +75,33 @@ const HighlightRowSchema = BaseRowSchema.extend({
   updatedAt: z.string(),
 });
 
+/**
+ * Pre-Games PB/NR reference baselines (not achievements) - what an athlete's
+ * personal best already was, and what the standing national record is for
+ * that event, BEFORE Glasgow 2026 results come in. Games Records (GR) are
+ * deliberately NOT part of this: a GR can only be set/broken live during
+ * the Games, so there's nothing to pre-populate here - GR achievements are
+ * tracked via the schedule collection's own recordType field instead.
+ */
+const PbNrReferenceRowSchema = BaseRowSchema.extend({
+  athleteName: z.string(),
+  sport: z.string(),
+  sportGroup: z.string(),
+  eventGender: z.string(),
+  event: z.string(),
+  personalBest: z.string(),
+  personalBestObtainedAt: z.string(),
+  remarks: z.string(),
+  nationalRecord: z.string(),
+  asOfDate: z.string(),
+});
+
 const SCHEMAS = {
   historical: HistoricalRowSchema,
   contingent: ContingentRowSchema,
   schedule: ScheduleRowSchema,
   highlights: HighlightRowSchema,
+  pbNrReference: PbNrReferenceRowSchema,
 };
 
 /** Minimal FIFO async lock so writes to one collection never race. */
@@ -105,12 +127,14 @@ class DataStore {
       contingent: new Map(),
       schedule: new Map(),
       highlights: new Map(),
+      pbNrReference: new Map(),
     };
     this.locks = {
       historical: new AsyncLock(),
       contingent: new AsyncLock(),
       schedule: new AsyncLock(),
       highlights: new AsyncLock(),
+      pbNrReference: new AsyncLock(),
     };
     this.lastSync = {};
   }

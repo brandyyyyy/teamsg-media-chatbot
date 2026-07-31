@@ -3,13 +3,19 @@
 const { dataStore } = require('../repository/dataStore');
 const { nameMatches, nameFuzzyMatches } = require('../repository/nameMatcher');
 const { config } = require('../../config/environment');
-const { ContingentSheetAdapter, ScheduleSheetAdapter } = require('../ingestion/googleSheets');
-const { ExcelHistoricalAdapter, HighlightsFolderAdapter } = require('../ingestion/localFileAdapter');
+const {
+  ContingentSheetAdapter,
+  ScheduleSheetAdapter,
+  HighlightsSheetAdapter,
+  PbNrReferenceSheetAdapter,
+} = require('../ingestion/googleSheets');
+const { ExcelHistoricalAdapter } = require('../ingestion/localFileAdapter');
 const {
   MockContingentAdapter,
   MockScheduleAdapter,
   MockExcelHistoricalAdapter,
   MockHighlightsAdapter,
+  MockPbNrReferenceAdapter,
 } = require('../ingestion/mockAdapter');
 
 /**
@@ -178,13 +184,15 @@ class QueryService {
         contingent: new MockContingentAdapter(),
         schedule: new MockScheduleAdapter(),
         highlights: new MockHighlightsAdapter(),
+        pbNrReference: new MockPbNrReferenceAdapter(),
       };
     }
     return {
       historical: new ExcelHistoricalAdapter(),
       contingent: new ContingentSheetAdapter(),
       schedule: new ScheduleSheetAdapter(),
-      highlights: new HighlightsFolderAdapter(),
+      highlights: new HighlightsSheetAdapter(),
+      pbNrReference: new PbNrReferenceSheetAdapter(),
     };
   }
 
@@ -257,6 +265,25 @@ class QueryService {
         r.recordType &&
         sportMatches(r, sport) &&
         (!recordType || r.recordType === recordType.toUpperCase()) &&
+        nameCheck(r.athleteName, athleteName)
+    );
+  }
+
+  /**
+   * Pre-Games PB/NR reference baselines (not achievements) - what an
+   * athlete's personal best already was, and the standing national record
+   * for that event, BEFORE Glasgow 2026 results come in. Distinct from
+   * getRecords(), which reports PB/NR/GR actually ACHIEVED during the
+   * Games via the live schedule feed. No Games Record equivalent exists
+   * here - see PbNrReferenceRowSchema for why.
+   */
+  getPbNrReference({ sport, athleteName, event } = {}, { fuzzy = false } = {}) {
+    const nameCheck = fuzzy ? nameFuzzyMatches : nameMatches;
+    return dataStore.getAll(
+      'pbNrReference',
+      (r) =>
+        sportMatches(r, sport) &&
+        (!event || r.event.toLowerCase() === event.toLowerCase()) &&
         nameCheck(r.athleteName, athleteName)
     );
   }

@@ -58,6 +58,7 @@ const filterQuerySchema = z.object({
   status: z.string().optional(),
   athleteName: z.string().optional(),
   recordType: z.string().optional(),
+  event: z.string().optional(),
 });
 
 router.get('/medals', (req, res, next) => {
@@ -82,6 +83,15 @@ router.get('/schedule', (req, res, next) => {
   try {
     const q = filterQuerySchema.parse(req.query);
     res.json({ success: true, data: queryService.getSchedule(q) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/pb-nr-reference', (req, res, next) => {
+  try {
+    const q = filterQuerySchema.parse(req.query);
+    res.json({ success: true, data: queryService.getPbNrReference(q) });
   } catch (e) {
     next(e);
   }

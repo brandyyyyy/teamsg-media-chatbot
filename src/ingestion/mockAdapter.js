@@ -2,7 +2,7 @@
 
 const { config } = require('../../config/environment');
 const { ExcelHistoricalAdapter, HighlightsFolderAdapter } = require('./localFileAdapter');
-const { ContingentSheetAdapter, ScheduleSheetAdapter } = require('./googleSheets');
+const { ContingentSheetAdapter, ScheduleSheetAdapter, PbNrReferenceSheetAdapter } = require('./googleSheets');
 
 /**
  * High-fidelity mock ingestion framework. Every mock adapter *extends* its
@@ -234,6 +234,48 @@ Watch for: Ho's semifinal opponent, should she advance, will likely be a left-ha
   },
 ];
 
+const PB_NR_MOCK_ROWS = [
+  {
+    DATE: '01/07/2026',
+    'ATHLETE NAME(S)': 'Ryan Tng',
+    SPORT: 'Swimming',
+    DISCIPLINE: 'Swimming',
+    'EVENT GENDER': 'Men',
+    EVENT: "100m Freestyle",
+    'Personal Best/Best Performance (Numeric)': '48.22',
+    'Personal Best/Best Performance Obtained At': 'SEA Games 2025, Singapore (SGP)',
+    REMARKS: '',
+    'National Record (Numeric)': '47.90',
+    'SDEGE-ATHLETE KEY': 'Swimming|Swimming|Men|100m Freestyle|Ryan Tng',
+  },
+  {
+    DATE: '01/07/2026',
+    'ATHLETE NAME(S)': 'Amanda Chen',
+    SPORT: 'Swimming',
+    DISCIPLINE: 'Swimming',
+    'EVENT GENDER': 'Women',
+    EVENT: "200m Individual Medley",
+    'Personal Best/Best Performance (Numeric)': '2:12.05',
+    'Personal Best/Best Performance Obtained At': 'SEA Games 2025, Singapore (SGP)',
+    REMARKS: '',
+    'National Record (Numeric)': '2:11.40',
+    'SDEGE-ATHLETE KEY': 'Swimming|Swimming|Women|200m Individual Medley|Amanda Chen',
+  },
+  {
+    DATE: '01/07/2026',
+    'ATHLETE NAME(S)': 'Danielle Seah',
+    SPORT: 'Athletics',
+    DISCIPLINE: 'Athletics',
+    'EVENT GENDER': 'Women',
+    EVENT: '100m Hurdles',
+    'Personal Best/Best Performance (Numeric)': '12.98',
+    'Personal Best/Best Performance Obtained At': 'National Championships 2025, Singapore (SGP)',
+    REMARKS: 'Current National Record holder entering Glasgow 2026.',
+    'National Record (Numeric)': '12.98',
+    'SDEGE-ATHLETE KEY': 'Athletics|Athletics|Women|100m Hurdles|Danielle Seah',
+  },
+];
+
 class MockExcelHistoricalAdapter extends ExcelHistoricalAdapter {
   constructor() {
     super(null, config.paths.historicalExcel, 'past_results.xlsx');
@@ -266,9 +308,17 @@ class MockHighlightsAdapter extends HighlightsFolderAdapter {
   }
 }
 
+class MockPbNrReferenceAdapter extends PbNrReferenceSheetAdapter {
+  // eslint-disable-next-line class-methods-use-this
+  async fetchRaw() {
+    return PB_NR_MOCK_ROWS;
+  }
+}
+
 module.exports = {
   MockExcelHistoricalAdapter,
   MockContingentAdapter,
   MockScheduleAdapter,
   MockHighlightsAdapter,
+  MockPbNrReferenceAdapter,
 };

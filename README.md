@@ -5,7 +5,7 @@ A media-focused, strictly data-grounded chatbot for tracking Team Singapore (Tea
 ## Architecture
 
 ```
-Excel Parser (.xlsx) + Google Sheets Connectors + FS Document Reader
+Excel Parser (.xlsx) + Google Sheets Connectors
         -> Multi-Source Ingestion Sync Layer (dedup + SHA-256 hash IDs)
         -> In-Memory Normalized Datastore Repository
         -> Filtered REST Data APIs
@@ -17,8 +17,8 @@ Excel Parser (.xlsx) + Google Sheets Connectors + FS Document Reader
 |---|---|
 | Env validation | `config/environment.js` |
 | Adapter contract | `src/ingestion/baseAdapter.js` |
-| Google Sheets (Sources 2 & 3) | `src/ingestion/googleSheets.js` |
-| Excel + filesystem (Sources 1 & 4) | `src/ingestion/localFileAdapter.js` |
+| Google Sheets (Sources 2, 3 & 4) | `src/ingestion/googleSheets.js` |
+| Excel (Source 1) | `src/ingestion/localFileAdapter.js` |
 | Mock framework (all 4 sources) | `src/ingestion/mockAdapter.js` |
 | Repository | `src/repository/dataStore.js` |
 | Sync/query orchestration | `src/services/queryService.js` |
@@ -77,8 +77,9 @@ The server cold-boot-syncs all 4 sources on startup, then re-syncs every `SYNC_I
 1. Set `MOCK_MODE=false` in `.env`.
 2. **Source 1 (past results)**: run `npm run seed` to write a starter `data/historical/past_results.xlsx`, or POST a real spreadsheet to `/api/upload-excel` (see curl example below).
 3. **Source 2 & 3 (Google Sheets)**: create a Google Cloud service account, share both sheets with its `client_email` as Viewer, then fill in `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_SHEET_ID_CONTINGENT`, `GOOGLE_SHEET_ID_SCHEDULE` in `.env`. Sheet header rows must include at minimum `AthleteName`, `Sport`, `Event` (Contingent) and `AthleteName`, `Sport`, `Event`, `Date` (Schedule).
-4. **Source 4 (highlights)**: drop `<sport>.md` or `<sport>.txt` files into `HIGHLIGHTS_DIR` (default `./data/highlights/`), e.g. `swimming.md`, `athletics.md`.
-5. **Web search fallback**: set `WEB_SEARCH_ENABLED=true` and implement a real provider inside `webSearchTool()` in `src/services/aiEngine.js` (currently a labelled stub).
+4. **Source 4 (highlights)**: share the highlights spreadsheet with the same service account and set `GOOGLE_SHEET_ID_HIGHLIGHTS` in `.env`. Every tab is treated as a sport category - column A holds row labels (`Sport`, `HPSM`, `Summaries`, `Highlights`, ...), and every column after it is one sport, with that sport's non-empty cells folded into one narrative per sport. Tabs are discovered dynamically, so adding/renaming/removing a category tab needs no code change.
+5. **PB/NR reference (same spreadsheet as Source 3)**: pre-Games Personal Best / National Record baselines, read from the `[CWG] PB, NR, GR` tab (`GOOGLE_PB_NR_RANGE`, default `'[CWG] PB, NR, GR'!B3:Q1000`) in the Schedule spreadsheet - no separate sheet ID needed. This is baseline data (what an athlete's PB already was, and an event's standing NR, going into the Games), distinct from PB/NR/GR actually *achieved* during Glasgow 2026 (still read from Source 3's own schedule columns via `get_records`). There is no Games Record equivalent here, since a GR can only be set/broken live during competition.
+6. **Web search fallback**: set `WEB_SEARCH_ENABLED=true` and implement a real provider inside `webSearchTool()` in `src/services/aiEngine.js` (currently a labelled stub).
 
 ## 4. Strict data-grounding guarantees
 
@@ -111,9 +112,14 @@ Filtered medal summary:
 curl "http://localhost:3000/api/medals?sport=Swimming&medal=GOLD"
 ```
 
-Records (PB/GR/WR/NR):
+Records actually achieved during the Games (PB/GR/WR/NR):
 ```bash
 curl "http://localhost:3000/api/records?recordType=NR"
+```
+
+Pre-Games PB/NR reference baselines:
+```bash
+curl "http://localhost:3000/api/pb-nr-reference?athleteName=Gan+Ching+Hwee"
 ```
 
 Live schedule:
@@ -182,9 +188,9 @@ printf '%s' "$GOOGLE_PRIVATE_KEY" | gcloud secrets create GOOGLE_PRIVATE_KEY --d
 
 ### Deploy
 
-From the project root, with the real `data/historical/*.xlsx` and
-`data/highlights/*.md` files present on disk (they're gitignored but not
-dockerignored, so `--source .` bakes in whatever is currently there):
+From the project root, with the real `data/historical/*.xlsx` file present
+on disk (it's gitignored but not dockerignored, so `--source .` bakes in
+whatever is currently there):
 
 ```bash
 gcloud run deploy teamsg-media-chatbot \
@@ -192,7 +198,7 @@ gcloud run deploy teamsg-media-chatbot \
   --region asia-southeast1 \
   --allow-unauthenticated \
   --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_PRIVATE_KEY=GOOGLE_PRIVATE_KEY:latest" \
-  --set-env-vars="MOCK_MODE=false,AI_PROVIDER=gemini,GEMINI_MODEL=gemini-flash-lite-latest,GOOGLE_SERVICE_ACCOUNT_EMAIL=<service-account>@<project>.iam.gserviceaccount.com,GOOGLE_SHEET_ID_CONTINGENT=<id>,GOOGLE_SHEET_ID_SCHEDULE=<id>"
+  --set-env-vars="MOCK_MODE=false,AI_PROVIDER=gemini,GEMINI_MODEL=gemini-flash-lite-latest,GOOGLE_SERVICE_ACCOUNT_EMAIL=<service-account>@<project>.iam.gserviceaccount.com,GOOGLE_SHEET_ID_CONTINGENT=<id>,GOOGLE_SHEET_ID_SCHEDULE=<id>,GOOGLE_SHEET_ID_HIGHLIGHTS=<id>"
 ```
 
 Adjust `--set-env-vars` for whichever of `config/environment.js`'s optional
@@ -221,8 +227,9 @@ gcloud builds triggers create github \
 ```
 
 Because this builds from the GitHub repo (not local disk), the gitignored
-`data/historical/*.xlsx` and `data/highlights/*.md` files won't be present in
-that build context — Source 1 (historical Excel) and Source 4 (highlights)
-will come up empty until you either commit sanitized versions of those files,
-mount them from Cloud Storage at startup, or keep using the manual
-`--source .` deploy path above for those two sources.
+`data/historical/*.xlsx` file won't be present in that build context —
+Source 1 (historical Excel) will come up empty until you either commit a
+sanitized version of that file, mount it from Cloud Storage at startup, or
+keep using the manual `--source .` deploy path above for that source.
+Source 4 (highlights) is unaffected either way, since it's now a live
+Google Sheet fetched over the API rather than a bundled local file.

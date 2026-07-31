@@ -159,8 +159,11 @@ class ExcelHistoricalAdapter extends BaseAdapter {
 }
 
 /**
- * Source 4: Sport Highlights/Narratives - individual .md/.txt files inside
- * HIGHLIGHTS_DIR, one per sport, named after the sport (swimming.md, ...).
+ * Former Source 4 (Sport Highlights/Narratives): individual .md/.txt files
+ * inside HIGHLIGHTS_DIR, one per sport, named after the sport (swimming.md,
+ * ...). No longer used live - Source 4 is now HighlightsSheetAdapter in
+ * googleSheets.js. Kept only so MockHighlightsAdapter (mockAdapter.js) has
+ * a normalize() to inherit for MOCK_MODE test fixtures.
  */
 class HighlightsFolderAdapter extends BaseAdapter {
   constructor(dirPath = config.paths.highlightsDir) {

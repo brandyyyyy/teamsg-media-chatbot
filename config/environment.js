@@ -51,6 +51,9 @@ const envSchema = z.object({
   GOOGLE_PRIVATE_KEY: optionalNonEmptyString(),
   GOOGLE_SHEET_ID_CONTINGENT: optionalNonEmptyString(),
   GOOGLE_SHEET_ID_SCHEDULE: optionalNonEmptyString(),
+  // Separate spreadsheet (sport-officer-authored highlights/summaries),
+  // not a tab within the Contingent/Schedule spreadsheet.
+  GOOGLE_SHEET_ID_HIGHLIGHTS: optionalNonEmptyString(),
   GOOGLE_CONTINGENT_RANGE: z.string().trim().min(1).default('Contingent!A1:Z1000'),
   GOOGLE_SCHEDULE_RANGE: z.string().trim().min(1).default('Schedule!A1:Z1000'),
   // Supplementary tab in the same spreadsheet marking each athlete's
@@ -58,6 +61,13 @@ const envSchema = z.object({
   // doesn't exist for a given deployment, contingent sync still succeeds
   // and debutantStatus is just left blank per athlete.
   GOOGLE_DEBUTANT_RANGE: z.string().trim().min(1).default('Debutant Status!A2:I200'),
+  // Same spreadsheet as Schedule (GOOGLE_SHEET_ID_SCHEDULE). Real header row
+  // is the tab's 3rd row (row 1 is blank, row 2 is a units note), and real
+  // columns start at B (A is unused) - so the range starts at B3, making
+  // B3 the header fetchSheetRows() keys every row off. PB/NR only - no
+  // Games Record column exists in this tab; GR comes from the schedule
+  // collection's own recordType field instead (see PbNrReferenceRowSchema).
+  GOOGLE_PB_NR_RANGE: z.string().trim().min(1).default("'[CWG] PB, NR, GR'!B3:Q1000"),
 
   HISTORICAL_EXCEL_PATH: z.string().trim().min(1).default('./data/historical/past_results.xlsx'),
   HIGHLIGHTS_DIR: z.string().trim().min(1).default('./data/highlights'),
@@ -74,6 +84,7 @@ const fullSchema = envSchema.superRefine((val, ctx) => {
       'GOOGLE_PRIVATE_KEY',
       'GOOGLE_SHEET_ID_CONTINGENT',
       'GOOGLE_SHEET_ID_SCHEDULE',
+      'GOOGLE_SHEET_ID_HIGHLIGHTS',
     ];
     for (const key of requiredWhenLive) {
       if (!val[key]) {

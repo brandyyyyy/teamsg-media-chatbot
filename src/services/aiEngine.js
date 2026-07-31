@@ -73,7 +73,8 @@ STRICT GROUNDING RULES - these override any other instinct:
     d. State plainly that the analysis is interpretation/opinion, not an official TeamSG position, and that it was not confirmed by any tool.
 16. For "sport by sport, when did each sport last win a medal" / "which sports have won before and which year" style questions covering the whole current contingent, call get_sport_medal_history once rather than calling get_medal_summary/aggregate_data per sport - it already covers every currently-competing sport and states hasWonMedalBefore/lastMedalYear per sport in one result. It carries the same debut-caveat as get_contingent_sports_without_history (rule 13): hasWonMedalBefore: false means no medal ever won at that Games, not a confirmed "first time competing" - phrase it that way.
 17. You do not have reliable access to the actual current date/time - never guess or assume it. For "next 24 hours", "today", "tomorrow", or any other time-RELATIVE schedule question, always call get_upcoming_schedule rather than pulling get_schedule and reasoning about dates yourself. State the exact nowSgt/windowEndSgt values it returns in your answer (all times are Singapore Time). Rows in "unconfirmedTime" have a placeholder time (e.g. "TBC") rather than a confirmed kickoff - present these separately and label them as time-to-be-confirmed, never as if they have a known start time. For a specific named calendar date ("what's on 23 July"), use get_schedule's "date" filter instead - pass the date in whatever format the user gave it, it is parsed flexibly, not matched as an exact string. If a date genuinely can't be parsed, the tool returns an error - tell the user rather than silently reporting no results.
-18. When a schedule answer (get_schedule or get_upcoming_schedule) includes MORE THAN ONE event, present them as a markdown table instead of a bulleted list - one row per event, with columns for Date, Time (SGT), Sport, Event, Athlete(s), and Status. Add an Opponent column (opponentAthleteName/opponentCountry) when at least one row in the table actually has one - omit that column entirely if none of the rows have an opponent (e.g. an all-Swimming table), rather than adding an empty column nobody needs. Add a Source column citing each row's "source" field, satisfying rule 2's citation requirement in tabular form - or, if every row shares the exact same source value, state that source once directly below the table instead of repeating it in every cell. A single-event answer does not need a table - present it as normal itemized prose (per rule 11), still citing the opponent when the row has one.`;
+18. When a schedule answer (get_schedule or get_upcoming_schedule) includes MORE THAN ONE event, present them as a markdown table instead of a bulleted list - one row per event, with columns for Date, Time (SGT), Sport, Event, Athlete(s), and Status. Add an Opponent column (opponentAthleteName/opponentCountry) when at least one row in the table actually has one - omit that column entirely if none of the rows have an opponent (e.g. an all-Swimming table), rather than adding an empty column nobody needs. Add a Source column citing each row's "source" field, satisfying rule 2's citation requirement in tabular form - or, if every row shares the exact same source value, state that source once directly below the table instead of repeating it in every cell. A single-event answer does not need a table - present it as normal itemized prose (per rule 11), still citing the opponent when the row has one.
+19. PB/NR/GR terminology spans TWO different tools depending on timing - do not conflate them. get_pb_nr_reference is the pre-Games REFERENCE baseline (what an athlete's PB already was, and an event's standing NR, before any Glasgow 2026 result) - use it for "what is X's personal best" or "what's the national record for Y event" questions. get_records is what was ACTUALLY ACHIEVED during Glasgow 2026 (from the live schedule feed), including any GR - use it for "did X break a record", "what records have been set", or similar achievement questions. There is no pre-Games reference for GR (a Games Record can only be set live during competition), so a GR question always means get_records, never get_pb_nr_reference.`;
 
 // Neutral tool specs: `parameters` is plain JSON Schema, consumed as-is by
 // OpenAI's `parameters` field and Gemini's `parametersJsonSchema` field.
@@ -108,7 +109,7 @@ const TOOL_SPECS = [
   {
     name: 'get_records',
     description:
-      'Get Personal Best (PB), Games Record (GR), World Record (WR), or National Record (NR) entries from the live schedule/results feed.',
+      'Get Personal Best (PB), Games Record (GR), World Record (WR), or National Record (NR) entries ACTUALLY ACHIEVED during Glasgow 2026, from the live schedule/results feed. For an athlete\'s PB or an event\'s NR going INTO the Games (i.e. before/without a result achieved yet), use get_pb_nr_reference instead.',
     parameters: {
       type: 'object',
       properties: {
@@ -117,6 +118,22 @@ const TOOL_SPECS = [
         athleteName: {
           type: 'string',
           description: 'Matches regardless of name order/format. A short or partial name may match multiple different athletes.',
+        },
+      },
+    },
+  },
+  {
+    name: 'get_pb_nr_reference',
+    description:
+      'Get pre-Games PB/NR REFERENCE baselines - what an athlete\'s personal best already was, and what the standing national record is for an event, BEFORE any Glasgow 2026 result. Use this for "what is X\'s personal best", "what\'s the national record for Y event" style questions. This does NOT cover achievements actually made during the Games (use get_records for those) and has no Games Record (GR) equivalent - a GR can only be set/broken live during competition, so there is no pre-Games baseline to look up for it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sport: { type: 'string', description: 'Broad sport category (e.g. "Aquatics", "Athletics") or specific discipline - both match.' },
+        event: { type: 'string', description: 'Specific event name, e.g. "100m Freestyle". Matched exactly (case-insensitive).' },
+        athleteName: {
+          type: 'string',
+          description: 'Matches regardless of name order/format. A short or partial name may match multiple different athletes. Omit to get every athlete\'s baseline for a given sport/event.',
         },
       },
     },
@@ -277,6 +294,7 @@ const ARG_SCHEMAS = {
     athleteName: z.string().optional(),
   }),
   get_records: z.object({ sport: z.string().optional(), recordType: z.string().optional(), athleteName: z.string().optional() }),
+  get_pb_nr_reference: z.object({ sport: z.string().optional(), event: z.string().optional(), athleteName: z.string().optional() }),
   get_schedule: z.object({
     sport: z.string().optional(),
     status: z.string().optional(),
@@ -412,6 +430,10 @@ async function executeTool(name, rawArgs) {
     case 'get_records': {
       const rows = queryService.getRecords(args);
       return withFuzzyArrayFallback(rows, args.athleteName, () => queryService.getRecords(args, { fuzzy: true }));
+    }
+    case 'get_pb_nr_reference': {
+      const rows = queryService.getPbNrReference(args);
+      return withFuzzyArrayFallback(rows, args.athleteName, () => queryService.getPbNrReference(args, { fuzzy: true }));
     }
     case 'get_schedule': {
       const rows = queryService.getSchedule(args);
