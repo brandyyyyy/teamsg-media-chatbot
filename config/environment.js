@@ -70,7 +70,6 @@ const envSchema = z.object({
   GOOGLE_PB_NR_RANGE: z.string().trim().min(1).default("'[CWG] PB, NR, GR'!B3:Q1000"),
 
   HISTORICAL_EXCEL_PATH: z.string().trim().min(1).default('./data/historical/past_results.xlsx'),
-  HIGHLIGHTS_DIR: z.string().trim().min(1).default('./data/highlights'),
   UPLOAD_DIR: z.string().trim().min(1).default('./data/uploads'),
 
   SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(300000),
@@ -117,7 +116,6 @@ const config = Object.freeze({
   ...parsed,
   paths: Object.freeze({
     historicalExcel: path.resolve(process.cwd(), parsed.HISTORICAL_EXCEL_PATH),
-    highlightsDir: path.resolve(process.cwd(), parsed.HIGHLIGHTS_DIR),
     uploadDir: path.resolve(process.cwd(), parsed.UPLOAD_DIR),
   }),
 });
